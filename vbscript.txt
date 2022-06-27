@@ -1,0 +1,102 @@
+
+
+Sub export_info()
+    export_data ("info")
+End Sub
+
+
+Sub export_pricelist()
+    export_data ("pricelist")
+End Sub
+
+
+Sub export_data(sht)
+    Dim datafile, root, dataKey, dataAttr As Object
+    Dim startRow, counter As Integer
+    Dim xKey, xValue, xNotes, Action As String
+    
+    
+    'On Error GoTo showError
+    Set datafile = CreateObject("MSXML2.DOMDocument")
+    datafile.async = False
+    datafile.validateOnParse = False
+    datafile.resolveExternals = False
+    datafile.appendChild datafile.createProcessingInstruction("xml", "version=""1.0"" encoding=""UTF-8""")
+    the_path = Application.ThisWorkbook.Path
+    the_file = the_path + "\" + sht + ".xml"
+    Set root = datafile.createElement("info")
+    datafile.appendChild root
+    Worksheets(sht).Select
+    
+    
+    ' set starting point in sheet
+    startRow = 7                                                ' row down of first entry in first section
+    counter = 0                                                 ' for feedback on how many fields saved
+
+
+    Do
+        ' loop through sections and export relevant data to xml file
+        xKey = Cells(startRow, 1)
+        xValue = Cells(startRow, 2)
+
+        ' exit on first blank cell in first col
+        If xKey = "" Then Exit Do
+        
+        
+        ' sheet specific stuff
+        If sht = "info" Then
+            xKey = LCase(xKey)
+            xKey = Replace(xKey, " ", "")
+            Set dataKey = datafile.createElement(xKey)
+            dataKey.Text = xValue
+            root.appendChild dataKey
+            
+            ' skip some header rows
+            If startRow = 11 Or startRow = 20 Then
+                startRow = startRow + 1
+            End If
+        End If
+            
+            
+        If sht = "pricelist" Then
+            Set dataKey = datafile.createElement("item")
+            dataKey.Text = xKey
+            xNotes = Cells(startRow, 3)
+            Set dataAttr = datafile.createAttribute("price")
+            dataAttr.NodeValue = xValue
+            dataKey.setAttributeNode dataAttr
+            Set dataAttr = datafile.createAttribute("notes")
+            dataAttr.NodeValue = xNotes
+            dataKey.setAttributeNode dataAttr
+            root.appendChild dataKey
+        End If
+        
+            
+        startRow = startRow + 1
+        counter = counter + 1
+            
+
+    Loop
+    datafile.Save (the_file)
+
+
+   ' now give option to ftp
+   Action = MsgBox(counter & " Data Fields Saved, Upload to Web?", vbOKCancel)
+   If Action = "1" Then
+       ' run local batch file
+       Shell (the_path + "\auto_ftp.bat " + the_path + " " + the_file)
+       'Shell (the_path + "\auto_ftp.bat")
+   End If
+   
+   Exit Sub
+   
+   
+showError:
+        MsgBox (Err.Description)
+End Sub
+
+
+
+
+
+
